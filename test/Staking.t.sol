@@ -224,12 +224,51 @@ contract StakingTest is Test {
             totalSupplyBefore,
             "total supply didnt update correctly"
         );
-        uint256 BobEarnings = staking.earned(bob);
+        uint256 bobEarning = staking.earned(bob);
         staking.getReward();
 
         assertGt(rewardToken.balanceOf(bob), 0, "No Rewards");
-        assertEq(rewardToken.balanceOf(bob), BobEarnings, "I no sabi");
+        assertEq(rewardToken.balanceOf(bob), bobEarning, "I no sabi");
 
         vm.stopPrank();
     }
+
+
+        function test_lastTimeRewardApplicable_beforeFinish() public {
+        vm.prank(owner);
+        staking.setRewardsDuration(1 weeks);
+
+        // Fund and notify reward
+        deal(address(rewardToken), owner, 100 ether);
+        vm.startPrank(owner);
+        rewardToken.transfer(address(staking), 100 ether);
+        staking.notifyRewardAmount(100 ether);
+        vm.stopPrank();
+
+        uint256 finishAt = staking.finishAt();
+        uint256 current = block.timestamp;
+
+        // Case: block.timestamp < finishAt
+        assertEq(staking.lastTimeRewardApplicable(), current);
+    }
+
+    function test_lastTimeRewardApplicable_afterFinish() public {
+        vm.prank(owner);
+        staking.setRewardsDuration(1 weeks);
+
+        deal(address(rewardToken), owner, 100 ether);
+        vm.startPrank(owner);
+        rewardToken.transfer(address(staking), 100 ether);
+        staking.notifyRewardAmount(100 ether);
+        vm.stopPrank();
+
+        uint256 finishAt = staking.finishAt();
+
+        // warp past finishAt
+        vm.warp(finishAt + 10);
+
+        // Case: block.timestamp > finishAt
+        assertEq(staking.lastTimeRewardApplicable(), finishAt);
+    }
+
 }
