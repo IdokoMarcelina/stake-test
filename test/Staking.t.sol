@@ -99,7 +99,6 @@ contract StakingTest is Test {
         vm.stopPrank();
     }
 
-    function test_reward_per_token() public {}
 
     function test_notify_Rewards() public {
         // check that it reverts if non owner tried to set duration
@@ -270,5 +269,35 @@ contract StakingTest is Test {
         // Case: block.timestamp > finishAt
         assertEq(staking.lastTimeRewardApplicable(), finishAt);
     }
+
+    function test_reward_per_token() public {
+    // Case 1: totalSupply = 0 → should just return stored value
+    assertEq(staking.rewardPerToken(), 0, "initial rewardPerToken not 0");
+
+    // Setup: owner funds rewards
+    vm.prank(owner);
+    staking.setRewardsDuration(1 weeks);
+    deal(address(rewardToken), owner, 100 ether);
+
+    vm.startPrank(owner);
+    rewardToken.transfer(address(staking), 100 ether);
+    staking.notifyRewardAmount(100 ether);
+    vm.stopPrank();
+
+    // Bob stakes
+    deal(address(stakingToken), bob, 10 ether);
+    vm.startPrank(bob);
+    stakingToken.approve(address(staking), 10 ether);
+    staking.stake(10 ether);
+    vm.stopPrank();
+
+    // Warp forward to accrue rewards
+    vm.warp(block.timestamp + 1 days);
+
+    // Case 2: totalSupply > 0 → rewardPerToken should increase
+    uint256 rpt = staking.rewardPerToken();
+    assertGt(rpt, 0, "rewardPerToken should be > 0 after time passes");
+}
+
 
 }
